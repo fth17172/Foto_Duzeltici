@@ -57,12 +57,12 @@
 
     try {
       btn.disabled = true;
+      resultBox.style.display = 'none';
       status.innerText = 'Görsel işleniyor ve sunucuya gönderiliyor...';
 
       const file = fileInput.files[0];
       const imageBase64 = await toBase64(file);
 
-      // 1. İşlemi Başlat
       const response = await fetch('/api/upscale', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -80,11 +80,17 @@
       if (!response.ok || data.error) throw new Error(data.error || 'İşlem başlatılamadı');
 
       const predictionId = data.id;
-      status.innerText = 'Yapay zeka çalışıyor, durum kontrol ediliyor...';
-
-      // 2. Durumu Takip Et
       let prediction = { status: data.status };
+      let attempts = 0;
+      const maxAttempts = 30; // Max 60 sn bekleme
+
       while (prediction.status !== 'succeeded' && prediction.status !== 'failed') {
+        if (attempts >= maxAttempts) {
+          throw new Error("İşlem zaman aşımına uğradı (Model sunucusu yoğun). Lütfen tekrar dene.");
+        }
+
+        attempts++;
+        status.innerText = `Yapay zeka çalışıyor... (${prediction.status}) [${attempts * 2}sn]`;
         await new Promise(r => setTimeout(r, 2000));
         
         const checkRes = await fetch(`/api/upscale?id=${predictionId}`);
@@ -97,12 +103,11 @@
       }
 
       if (prediction.status === 'succeeded') {
-        status.innerText = 'Görsel hazırlanıyor...';
+        status.innerText = 'Görsel indiriliyor...';
         
         const imageUrl = Array.isArray(prediction.output) ? prediction.output[0] : prediction.output;
         outputImg.src = imageUrl;
 
-        // Görseli indirme hatasını (Sitede dosyaya ulaşılamadı) çözen Blob yapısı
         const imgRes = await fetch(imageUrl);
         const blob = await imgRes.blob();
         const blobUrl = URL.createObjectURL(blob);
