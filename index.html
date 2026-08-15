@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Fotoğraf Netleştirici</title>
+  <title>AI Fotoğraf Netleştirici</title>
   <style>
     * { box-sizing: border-box; font-family: system-ui, -apple-system, sans-serif; }
     body { background: #0f172a; color: #f8fafc; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 20px; }
@@ -38,8 +38,12 @@
 </div>
 
 <script>
-  const API_KEY = "r8_Ua1ywudbHx5lUdRPu0mBBtMZu86iOrn4eojJd";
-  const PROXY = "https://api.allorigins.win/raw?url=";
+  const toBase64 = file => new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = error => reject(error);
+  });
 
   async function processImage() {
     const fileInput = document.getElementById('fileInput');
@@ -53,64 +57,26 @@
 
     try {
       btn.disabled = true;
-      status.innerText = 'Fotoğraf sunucuya yükleniyor...';
+      status.innerText = 'Görsel hazırlanıyor ve sunucuya iletiliyor...';
 
-      // 1. Görseli ImgBB/freeimage CDN sunucusuna yüklüyoruz (Proxy derdi olmadan Replicate'e vermek için)
-      const formData = new FormData();
-      formData.append('image', fileInput.files[0]);
+      const file = fileInput.files[0];
+      const imageBase64 = await toBase64(file);
 
-      const uploadRes = await fetch('https://api.imgbb.com/1/upload?key=6d207e02198a847aa98d0a2a901485a5', {
+      status.innerText = 'Yapay zeka çalışıyor, lütfen bekleyin (10-15 sn)...';
+
+      const response = await fetch('/api/upscale', {
         method: 'POST',
-        body: formData
-      });
-      const uploadData = await uploadRes.json();
-      
-      if (!uploadData.success) throw new Error("Görsel yüklenemedi.");
-      const imageUrl = uploadData.data.url;
-
-      status.innerText = 'Replicate yapay zekasına gönderiliyor...';
-
-      // 2. Replicate Modeline URL olarak gönderiyoruz
-      const targetUrl = 'https://api.replicate.com/v1/predictions';
-      const response = await fetch(PROXY + encodeURIComponent(targetUrl), {
-        method: 'POST',
-        headers: {
-          'Authorization': `Token ${API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          version: "42a346882b0f20d6f228471f4967362f6d0f62d100063f25c7e3f848074f386c",
-          input: {
-            image: imageUrl,
-            scale: 2,
-            face_enhance: true
-          }
-        })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: imageBase64 })
       });
 
       const data = await response.json();
-      if (data.error) throw new Error(data.error);
+      if (!response.ok || data.error) throw new Error(data.error || 'Bir hata oluştu');
 
-      status.innerText = 'Görsel işleniyor (10-15 sn sürebilir)...';
-      
-      let prediction = data;
-      while (prediction.status !== 'succeeded' && prediction.status !== 'failed') {
-        await new Promise(r => setTimeout(r, 2000));
-        const checkUrl = `https://api.replicate.com/v1/predictions/${prediction.id}`;
-        const checkRes = await fetch(PROXY + encodeURIComponent(checkUrl), {
-          headers: { 'Authorization': `Token ${API_KEY}` }
-        });
-        prediction = await checkRes.json();
-      }
-
-      if (prediction.status === 'succeeded') {
-        status.innerText = 'İşlem tamamlandı!';
-        outputImg.src = prediction.output;
-        downloadBtn.href = prediction.output;
-        resultBox.style.display = 'block';
-      } else {
-        status.innerText = 'Hata: ' + (prediction.error || 'İşlem başarısız');
-      }
+      status.innerText = 'İşlem tamamlandı!';
+      outputImg.src = data.output;
+      downloadBtn.href = data.output;
+      resultBox.style.display = 'block';
 
     } catch (err) {
       console.error(err);
