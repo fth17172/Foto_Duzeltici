@@ -2,7 +2,6 @@ export default async function handler(req, res) {
   const API_KEY = "r8_Ua1ywudbHx5lUdRPu0mBBtMZu86iOrn4eojJd";
 
   try {
-    // GET: Durum Sorgulama
     if (req.method === 'GET') {
       const { id } = req.query;
       if (!id) return res.status(400).json({ error: 'ID eksik' });
@@ -14,7 +13,6 @@ export default async function handler(req, res) {
       return res.status(200).json(prediction);
     }
 
-    // POST: İşlemi Başlatma
     if (req.method === 'POST') {
       const { image } = req.body;
       if (!image) return res.status(400).json({ error: 'Görsel eksik' });
