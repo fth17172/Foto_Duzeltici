@@ -57,26 +57,53 @@
 
     try {
       btn.disabled = true;
-      status.innerText = 'Görsel hazırlanıyor ve sunucuya iletiliyor...';
+      status.innerText = 'Görsel işleniyor ve sunucuya gönderiliyor...';
 
       const file = fileInput.files[0];
       const imageBase64 = await toBase64(file);
 
-      status.innerText = 'Yapay zeka çalışıyor, lütfen bekleyin (10-15 sn)...';
-
+      // 1. İşlemi Başlat
       const response = await fetch('/api/upscale', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ image: imageBase64 })
       });
 
-      const data = await response.json();
-      if (!response.ok || data.error) throw new Error(data.error || 'Bir hata oluştu');
+      const textData = await response.text();
+      let data;
+      try {
+        data = JSON.parse(textData);
+      } catch (e) {
+        throw new Error("Sunucu yanıt veremedi (Görsel boyutu çok büyük olabilir).");
+      }
 
-      status.innerText = 'İşlem tamamlandı!';
-      outputImg.src = data.output;
-      downloadBtn.href = data.output;
-      resultBox.style.display = 'block';
+      if (!response.ok || data.error) throw new Error(data.error || 'İşlem başlatılamadı');
+
+      const predictionId = data.id;
+      status.innerText = 'Yapay zeka çalışıyor, durum kontrol ediliyor...';
+
+      // 2. Durumu Ön Yüzde (Client) Polling Yaparak Takip Et
+      let prediction = { status: data.status };
+      while (prediction.status !== 'succeeded' && prediction.status !== 'failed') {
+        await new Promise(r => setTimeout(r, 2000));
+        
+        const checkRes = await fetch(`/api/upscale?id=${predictionId}`);
+        const checkText = await checkRes.text();
+        try {
+          prediction = JSON.parse(checkText);
+        } catch (e) {
+          continue;
+        }
+      }
+
+      if (prediction.status === 'succeeded') {
+        status.innerText = 'İşlem tamamlandı!';
+        outputImg.src = prediction.output;
+        downloadBtn.href = prediction.output;
+        resultBox.style.display = 'block';
+      } else {
+        status.innerText = 'Hata: ' + (prediction.error || 'İşlem başarısız');
+      }
 
     } catch (err) {
       console.error(err);
