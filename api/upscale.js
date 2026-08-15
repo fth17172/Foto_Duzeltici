@@ -1,46 +1,40 @@
 export default async function handler(req, res) {
-  const API_KEY = "r8_Ua1ywudbHx5lUdRPu0mBBtMZu86iOrn4eojJd";
+  const HF_TOKEN = "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";
+
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
 
   try {
-    if (req.method === 'GET') {
-      const { id } = req.query;
-      if (!id) return res.status(400).json({ error: 'ID eksik' });
+    const { image } = req.body;
+    if (!image) return res.status(400).json({ error: 'Görsel eksik' });
 
-      const checkRes = await fetch(`https://api.replicate.com/v1/predictions/${id}`, {
-        headers: { 'Authorization': `Token ${API_KEY}` }
-      });
-      const prediction = await checkRes.json();
-      return res.status(200).json(prediction);
-    }
+    const base64Data = image.replace(/^data:image\/\w+;base64,/, "");
+    const imageBuffer = Buffer.from(base64Data, 'base64');
 
-    if (req.method === 'POST') {
-      const { image } = req.body;
-      if (!image) return res.status(400).json({ error: 'Görsel eksik' });
-
-      // Hızlı çalışan Real-ESRGAN Modeli
-      const startRes = await fetch('https://api.replicate.com/v1/predictions', {
-        method: 'POST',
+    const response = await fetch(
+      "https://api-inference.huggingface.co/models/xinntao/realesrgan-x4plus",
+      {
         headers: {
-          'Authorization': `Token ${API_KEY}`,
-          'Content-Type': 'application/json',
+          Authorization: `Bearer ${HF_TOKEN}`,
+          "Content-Type": "application/octet-stream",
         },
-        body: JSON.stringify({
-          version: "f121d640bd286e1fdc6732651516230bea32b3842d4502dd1d963f2591177202",
-          input: {
-            image: image,
-            upscale: 2,
-            face_enhance: true
-          }
-        })
-      });
+        method: "POST",
+        body: imageBuffer,
+      }
+    );
 
-      const startData = await startRes.json();
-      if (startData.error) return res.status(500).json({ error: startData.error });
-
-      return res.status(200).json({ id: startData.id, status: startData.status });
+    if (!response.ok) {
+      const errText = await response.text();
+      return res.status(response.status).json({ error: `HF API Hata: ${errText}` });
     }
 
-    return res.status(405).json({ error: 'Method not allowed' });
+    const arrayBuffer = await response.arrayBuffer();
+    const resultBase64 = Buffer.from(arrayBuffer).toString('base64');
+    const resultDataUrl = `data:image/png;base64,${resultBase64}`;
+
+    return res.status(200).json({ output: resultDataUrl });
+
   } catch (error) {
     return res.status(500).json({ error: error.message });
   }
