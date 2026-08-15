@@ -33,7 +33,7 @@
     <h3>Sonuç:</h3>
     <img id="outputImg" src="" alt="Netleşmiş Fotoğraf" />
     <br>
-    <a id="downloadBtn" class="btn-download" href="" target="_blank" download="netlestirilmis.png">Görseli İndir</a>
+    <a id="downloadBtn" class="btn-download" href="" download="netlestirilmis.png">Görseli İndir</a>
   </div>
 </div>
 
@@ -82,7 +82,7 @@
       const predictionId = data.id;
       status.innerText = 'Yapay zeka çalışıyor, durum kontrol ediliyor...';
 
-      // 2. Durumu Ön Yüzde (Client) Polling Yaparak Takip Et
+      // 2. Durumu Takip Et
       let prediction = { status: data.status };
       while (prediction.status !== 'succeeded' && prediction.status !== 'failed') {
         await new Promise(r => setTimeout(r, 2000));
@@ -97,9 +97,20 @@
       }
 
       if (prediction.status === 'succeeded') {
+        status.innerText = 'Görsel hazırlanıyor...';
+        
+        const imageUrl = Array.isArray(prediction.output) ? prediction.output[0] : prediction.output;
+        outputImg.src = imageUrl;
+
+        // Görseli indirme hatasını (Sitede dosyaya ulaşılamadı) çözen Blob yapısı
+        const imgRes = await fetch(imageUrl);
+        const blob = await imgRes.blob();
+        const blobUrl = URL.createObjectURL(blob);
+
+        downloadBtn.href = blobUrl;
+        downloadBtn.download = "netlestirilmis.png";
+        
         status.innerText = 'İşlem tamamlandı!';
-        outputImg.src = prediction.output;
-        downloadBtn.href = prediction.output;
         resultBox.style.display = 'block';
       } else {
         status.innerText = 'Hata: ' + (prediction.error || 'İşlem başarısız');
