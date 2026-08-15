@@ -13,7 +13,7 @@
     button { width: 100%; padding: 12px; background: #0284c7; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 1rem; margin-top: 10px; }
     button:hover { background: #0369a1; }
     button:disabled { background: #475569; cursor: not-allowed; }
-    .status { margin-top: 15px; font-size: 0.9rem; color: #94a3b8; }
+    .status { margin-top: 15px; font-size: 0.9rem; color: #94a3b8; word-break: break-all; }
     .result-box { margin-top: 20px; display: none; }
     img { max-width: 100%; border-radius: 8px; border: 1px solid #334155; margin-top: 10px; }
     a.btn-download { display: inline-block; padding: 10px 15px; background: #10b981; color: white; text-decoration: none; border-radius: 6px; margin-top: 10px; font-weight: bold; }
@@ -45,7 +45,7 @@
       const canvas = document.createElement('canvas');
       let width = img.width;
       let height = img.height;
-      const maxDim = 1024;
+      const maxDim = 800; // Hızlı işleme ve düşük pay-load için 800px limit
 
       if (width > maxDim || height > maxDim) {
         if (width > height) {
@@ -61,7 +61,7 @@
       canvas.height = height;
       const ctx = canvas.getContext('2d');
       ctx.drawImage(img, 0, 0, width, height);
-      resolve(canvas.toDataURL('image/jpeg', 0.8));
+      resolve(canvas.toDataURL('image/jpeg', 0.85));
     };
     img.onerror = error => reject(error);
   });
@@ -79,9 +79,11 @@
     try {
       btn.disabled = true;
       resultBox.style.display = 'none';
-      status.innerText = 'Yapay zeka görseli işliyor...';
+      status.innerText = 'Görsel optimize ediliyor...';
 
       const imageBase64 = await optimizeImage(fileInput.files[0]);
+
+      status.innerText = 'Yapay zeka görseli işliyor (model başlatılıyor olabilir)...';
 
       const response = await fetch('/api/upscale', {
         method: 'POST',
