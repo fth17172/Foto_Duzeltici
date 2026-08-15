@@ -9,15 +9,18 @@ export default async function handler(req, res) {
     const { image } = req.body;
     if (!image) return res.status(400).json({ error: 'Görsel eksik' });
 
+    // Base64 verisini binary buffer'a çevir
     const base64Data = image.replace(/^data:image\/\w+;base64,/, "");
     const imageBuffer = Buffer.from(base64Data, 'base64');
 
+    // Hugging Face router endpoint
     const response = await fetch(
-      "https://api-inference.huggingface.co/models/xinntao/realesrgan-x4plus",
+      "https://router.huggingface.co/hf-inference/models/xinntao/realesrgan-x4plus",
       {
         headers: {
-          Authorization: `Bearer ${HF_TOKEN}`,
+          "Authorization": `Bearer ${HF_TOKEN}`,
           "Content-Type": "application/octet-stream",
+          "x-wait-for-model": "true"
         },
         method: "POST",
         body: imageBuffer,
@@ -26,7 +29,7 @@ export default async function handler(req, res) {
 
     if (!response.ok) {
       const errText = await response.text();
-      return res.status(response.status).json({ error: `HF API Hata: ${errText}` });
+      return res.status(response.status).json({ error: `HF API Hata (${response.status}): ${errText}` });
     }
 
     const arrayBuffer = await response.arrayBuffer();
@@ -36,6 +39,7 @@ export default async function handler(req, res) {
     return res.status(200).json({ output: resultDataUrl });
 
   } catch (error) {
-    return res.status(500).json({ error: error.message });
+    console.error("API Error:", error);
+    return res.status(500).json({ error: `Sunucu Hatası: ${error.message}` });
   }
 }
