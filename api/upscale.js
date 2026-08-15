@@ -17,6 +17,7 @@ export default async function handler(req, res) {
       const { image } = req.body;
       if (!image) return res.status(400).json({ error: 'Görsel eksik' });
 
+      // Hızlı çalışan Real-ESRGAN Modeli
       const startRes = await fetch('https://api.replicate.com/v1/predictions', {
         method: 'POST',
         headers: {
@@ -24,10 +25,10 @@ export default async function handler(req, res) {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          version: "42a346882b0f20d6f228471f4967362f6d0f62d100063f25c7e3f848074f386c",
+          version: "f121d640bd286e1fdc6732651516230bea32b3842d4502dd1d963f2591177202",
           input: {
             image: image,
-            scale: 2,
+            upscale: 2,
             face_enhance: true
           }
         })
