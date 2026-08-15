@@ -38,7 +38,6 @@
 </div>
 
 <script>
-  // Boyutu Vercel/Replicate sınırlarına uygun sıkıştırma fonksiyonu
   const optimizeImage = file => new Promise((resolve, reject) => {
     const img = new Image();
     img.src = URL.createObjectURL(file);
@@ -46,7 +45,7 @@
       const canvas = document.createElement('canvas');
       let width = img.width;
       let height = img.height;
-      const maxDim = 1280; // Max gen/yük
+      const maxDim = 1024;
 
       if (width > maxDim || height > maxDim) {
         if (width > height) {
@@ -62,7 +61,7 @@
       canvas.height = height;
       const ctx = canvas.getContext('2d');
       ctx.drawImage(img, 0, 0, width, height);
-      resolve(canvas.toDataURL('image/jpeg', 0.85));
+      resolve(canvas.toDataURL('image/jpeg', 0.8));
     };
     img.onerror = error => reject(error);
   });
@@ -80,11 +79,10 @@
     try {
       btn.disabled = true;
       resultBox.style.display = 'none';
-      status.innerText = 'Görsel optimize ediliyor...';
+      status.innerText = 'Yapay zeka görseli işliyor...';
 
       const imageBase64 = await optimizeImage(fileInput.files[0]);
 
-      status.innerText = 'Sunucuya aktarılıyor...';
       const response = await fetch('/api/upscale', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -92,37 +90,13 @@
       });
 
       const data = await response.json();
-      if (!response.ok || data.error) throw new Error(data.error || 'İşlem başlatılamadı');
+      if (!response.ok || data.error) throw new Error(data.error || 'İşlem başarısız');
 
-      const predictionId = data.id;
-      let prediction = { status: data.status };
-      let attempts = 0;
-
-      while (prediction.status !== 'succeeded' && prediction.status !== 'failed') {
-        attempts++;
-        status.innerText = `İşleniyor (${prediction.status}) [${attempts * 2}s]`;
-        await new Promise(r => setTimeout(r, 2000));
-        
-        const checkRes = await fetch(`/api/upscale?id=${predictionId}`);
-        prediction = await checkRes.json();
-      }
-
-      if (prediction.status === 'succeeded') {
-        status.innerText = 'Görsel indiriliyor...';
-        
-        const imageUrl = Array.isArray(prediction.output) ? prediction.output[0] : prediction.output;
-        outputImg.src = imageUrl;
-
-        const imgRes = await fetch(imageUrl);
-        const blob = await imgRes.blob();
-        downloadBtn.href = URL.createObjectURL(blob);
-        downloadBtn.download = "netlestirilmis.png";
-        
-        status.innerText = 'İşlem tamamlandı!';
-        resultBox.style.display = 'block';
-      } else {
-        status.innerText = 'Hata: ' + (prediction.error || 'İşlem başarısız');
-      }
+      outputImg.src = data.output;
+      downloadBtn.href = data.output;
+      
+      status.innerText = 'İşlem tamamlandı!';
+      resultBox.style.display = 'block';
 
     } catch (err) {
       console.error(err);
